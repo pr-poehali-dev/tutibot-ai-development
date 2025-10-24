@@ -43,6 +43,8 @@ export default function Index() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const botAvatarInputRef = useRef<HTMLInputElement>(null);
+  const userAvatarInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const currentChat = chats.find(c => c.id === activeChat);
@@ -77,6 +79,30 @@ export default function Index() {
       const reader = new FileReader();
       reader.onload = (event) => {
         setSelectedImage(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBotAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setBotAvatar(event.target?.result as string);
+        toast.success('Аватар бота обновлен');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUserAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setUserAvatar(event.target?.result as string);
+        toast.success('Ваш аватар обновлен');
       };
       reader.readAsDataURL(file);
     }
@@ -232,7 +258,13 @@ export default function Index() {
           borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
         }}>
           <div className="flex items-center gap-3">
-            <div className="text-3xl">{botAvatar}</div>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-2xl" style={{ backgroundColor: 'var(--bg-card)' }}>
+              {botAvatar.startsWith('data:') ? (
+                <img src={botAvatar} alt="Bot" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                botAvatar
+              )}
+            </div>
             <div>
               <h2 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>{botName}</h2>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Онлайн</p>
@@ -246,18 +278,57 @@ export default function Index() {
             </SheetTrigger>
             <SheetContent className="w-96 border-l border-white/10" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <SheetHeader>
-                <SheetTitle style={{ color: 'var(--text-primary)' }}>Настройки</SheetTitle>
+                <div className="flex items-center justify-between">
+                  <SheetTitle style={{ color: 'var(--text-primary)' }}>Настройки</SheetTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="hover:bg-white/5"
+                  >
+                    <Icon name="X" size={20} />
+                  </Button>
+                </div>
               </SheetHeader>
               <div className="space-y-6 mt-6">
                 <div>
                   <Label style={{ color: 'var(--text-primary)' }}>Аватар бота</Label>
-                  <Input 
-                    value={botAvatar}
-                    onChange={(e) => setBotAvatar(e.target.value)}
-                    className="mt-2 border-white/10"
-                    style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                    placeholder="🤖"
-                  />
+                  <div className="flex items-center gap-3 mt-2">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl" style={{ backgroundColor: 'var(--bg-card)' }}>
+                      {botAvatar.startsWith('data:') ? (
+                        <img src={botAvatar} alt="Bot" className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        botAvatar
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Input 
+                        value={botAvatar.startsWith('data:') ? '' : botAvatar}
+                        onChange={(e) => setBotAvatar(e.target.value)}
+                        className="border-white/10"
+                        style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                        placeholder="🤖 или эмодзи"
+                      />
+                      <input
+                        type="file"
+                        ref={botAvatarInputRef}
+                        onChange={handleBotAvatarSelect}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => botAvatarInputRef.current?.click()}
+                        className="w-full border-white/10 hover:bg-white/5"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        <Icon name="Upload" size={16} className="mr-2" />
+                        Загрузить фото
+                      </Button>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <Label style={{ color: 'var(--text-primary)' }}>Имя бота</Label>
@@ -270,13 +341,42 @@ export default function Index() {
                 </div>
                 <div>
                   <Label style={{ color: 'var(--text-primary)' }}>Ваш аватар</Label>
-                  <Input 
-                    value={userAvatar}
-                    onChange={(e) => setUserAvatar(e.target.value)}
-                    className="mt-2 border-white/10"
-                    style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                    placeholder="👤"
-                  />
+                  <div className="flex items-center gap-3 mt-2">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl" style={{ backgroundColor: 'var(--bg-card)' }}>
+                      {userAvatar.startsWith('data:') ? (
+                        <img src={userAvatar} alt="User" className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        userAvatar
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Input 
+                        value={userAvatar.startsWith('data:') ? '' : userAvatar}
+                        onChange={(e) => setUserAvatar(e.target.value)}
+                        className="border-white/10"
+                        style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                        placeholder="👤 или эмодзи"
+                      />
+                      <input
+                        type="file"
+                        ref={userAvatarInputRef}
+                        onChange={handleUserAvatarSelect}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => userAvatarInputRef.current?.click()}
+                        className="w-full border-white/10 hover:bg-white/5"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        <Icon name="Upload" size={16} className="mr-2" />
+                        Загрузить фото
+                      </Button>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <Label style={{ color: 'var(--text-primary)' }}>Ваш никнейм</Label>
@@ -386,7 +486,13 @@ export default function Index() {
           {currentChat?.messages.length === 0 ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
-                <div className="text-6xl mb-4">{botAvatar}</div>
+                <div className="w-24 h-24 rounded-full flex items-center justify-center text-6xl mb-4 mx-auto" style={{ backgroundColor: 'var(--bg-card)' }}>
+                  {botAvatar.startsWith('data:') ? (
+                    <img src={botAvatar} alt="Bot" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    botAvatar
+                  )}
+                </div>
                 <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{botName}</h2>
                 <p style={{ color: 'var(--text-muted)' }}>Напиши что-нибудь или прикрепи фото</p>
               </div>
@@ -399,8 +505,12 @@ export default function Index() {
                   message.sender === 'user' ? 'flex-row-reverse' : ''
                 }`}
               >
-                <div className="text-2xl flex-shrink-0">
-                  {message.sender === 'user' ? userAvatar : botAvatar}
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xl" style={{ backgroundColor: 'var(--bg-card)' }}>
+                  {(message.sender === 'user' ? userAvatar : botAvatar).startsWith('data:') ? (
+                    <img src={message.sender === 'user' ? userAvatar : botAvatar} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    message.sender === 'user' ? userAvatar : botAvatar
+                  )}
                 </div>
                 <div
                   className={`max-w-[70%] rounded-2xl px-4 py-3 ${
