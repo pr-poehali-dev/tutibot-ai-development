@@ -5,6 +5,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface Message {
   id: string;
@@ -48,6 +50,8 @@ export default function Index() {
   const [editingChatName, setEditingChatName] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const botAvatarInputRef = useRef<HTMLInputElement>(null);
@@ -274,6 +278,125 @@ export default function Index() {
   const cancelEditingChat = () => {
     setEditingChatId(null);
     setEditingChatName('');
+  };
+
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const audioChunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+          toast.success('Голосовой ввод завершен');
+        } else {
+          toast.info('Запись сохранена');
+        }
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      toast.success('Запись голоса...');
+    } catch (error) {
+      toast.error('Не удалось получить доступ к микрофону');
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+      
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        startSpeechRecognition();
+      }
+    }
+  };
+
+  const startSpeechRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      toast.error('Распознавание речи не поддерживается');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ru-RU';
+    recognition.interimResults = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInputValue(transcript);
+      toast.success('Текст распознан!');
+    };
+
+    recognition.onerror = () => {
+      toast.error('Ошибка распознавания');
+    };
+
+    recognition.start();
+  };
+
+  const renderMessageText = (text: string, isDarkTheme: boolean) => {
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    const inlineCodeRegex = /`([^`]+)`/g;
+    
+    const parts: JSX.Element[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        const beforeText = text.substring(lastIndex, match.index);
+        parts.push(
+          <span key={`text-${lastIndex}`} dangerouslySetInnerHTML={{ 
+            __html: beforeText.replace(inlineCodeRegex, '<code class="inline-code">$1</code>') 
+          }} />
+        );
+      }
+
+      const language = match[1] || 'javascript';
+      const code = match[2];
+      
+      parts.push(
+        <div key={`code-${match.index}`} className="my-2">
+          <SyntaxHighlighter
+            language={language}
+            style={isDarkTheme ? vscDarkPlus : vs}
+            customStyle={{
+              borderRadius: '8px',
+              padding: '12px',
+              fontSize: '14px'
+            }}
+          >
+            {code}
+          </SyntaxHighlighter>
+        </div>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+      const remainingText = text.substring(lastIndex);
+      parts.push(
+        <span key={`text-${lastIndex}`} dangerouslySetInnerHTML={{ 
+          __html: remainingText.replace(inlineCodeRegex, '<code class="inline-code">$1</code>') 
+        }} />
+      );
+    }
+
+    return parts.length > 0 ? <>{parts}</> : <span>{text}</span>;
   };
 
   return (
@@ -597,9 +720,9 @@ export default function Index() {
                   {message.image && (
                     <img src={message.image} alt="Uploaded" className="rounded-lg mb-2 max-w-full max-h-64 object-contain" />
                   )}
-                  <p className="whitespace-pre-wrap" style={{ color: message.sender === 'user' ? '#fff' : 'var(--text-primary)' }}>
-                    {message.text}
-                  </p>
+                  <div className="whitespace-pre-wrap message-content" style={{ color: message.sender === 'user' ? '#fff' : 'var(--text-primary)' }}>
+                    {renderMessageText(message.text, themeColors[selectedTheme].isDark)}
+                  </div>
                   <p className="text-xs mt-1" style={{ color: message.sender === 'user' ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>
                     {message.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                   </p>
@@ -640,6 +763,15 @@ export default function Index() {
               onClick={() => fileInputRef.current?.click()}
             >
               <Icon name="Paperclip" size={20} />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={`flex-shrink-0 ${isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'hover:bg-white/5'}`}
+              onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
+              disabled={isProcessing}
+            >
+              <Icon name={isRecording ? 'MicOff' : 'Mic'} size={20} />
             </Button>
             <Input
               value={inputValue}
