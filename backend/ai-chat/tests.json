@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "Test greeting message",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": "Привет",
+        "hasImage": false
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "response": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test message with image",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": "Что на фото?",
+        "hasImage": true
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "response": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
