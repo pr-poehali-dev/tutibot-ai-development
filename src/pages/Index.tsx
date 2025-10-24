@@ -21,10 +21,12 @@ interface Chat {
 }
 
 const themeColors = [
-  { name: 'Темная', bg: '#17181C', panel: '#212226', card: '#2C2D32', text: '#E4E4E7', textMuted: '#A1A1AA' },
-  { name: 'Синяя', bg: '#0F1419', panel: '#1A1F2E', card: '#252D3F', text: '#E1E8F0', textMuted: '#8B95A8' },
-  { name: 'Зеленая', bg: '#0E1512', panel: '#1A2420', card: '#253329', text: '#E0F0E8', textMuted: '#8CA89A' },
-  { name: 'Фиолетовая', bg: '#14111C', panel: '#221D2E', card: '#2F2940', text: '#E8E4F0', textMuted: '#9D94AA' },
+  { name: 'Темная', bg: '#17181C', panel: '#212226', card: '#2C2D32', text: '#E4E4E7', textMuted: '#A1A1AA', isDark: true },
+  { name: 'Синяя', bg: '#0F1419', panel: '#1A1F2E', card: '#252D3F', text: '#E1E8F0', textMuted: '#8B95A8', isDark: true },
+  { name: 'Зеленая', bg: '#0E1512', panel: '#1A2420', card: '#253329', text: '#E0F0E8', textMuted: '#8CA89A', isDark: true },
+  { name: 'Фиолетовая', bg: '#14111C', panel: '#221D2E', card: '#2F2940', text: '#E8E4F0', textMuted: '#9D94AA', isDark: true },
+  { name: 'Светлая', bg: '#F5F5F7', panel: '#FFFFFF', card: '#F0F0F2', text: '#1C1C1E', textMuted: '#6E6E73', isDark: false },
+  { name: 'Белая', bg: '#FFFFFF', panel: '#FAFAFA', card: '#F5F5F5', text: '#000000', textMuted: '#8E8E93', isDark: false },
 ];
 
 export default function Index() {
@@ -38,7 +40,12 @@ export default function Index() {
   const [botAvatar, setBotAvatar] = useState(() => localStorage.getItem('tutibot-avatar') || '🤖');
   const [userName, setUserName] = useState(() => localStorage.getItem('user-name') || 'Пользователь');
   const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem('user-avatar') || '👤');
-  const [selectedTheme, setSelectedTheme] = useState(0);
+  const [selectedTheme, setSelectedTheme] = useState(() => {
+    const saved = localStorage.getItem('tutibot-theme');
+    return saved ? parseInt(saved) : 0;
+  });
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingChatName, setEditingChatName] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -60,6 +67,7 @@ export default function Index() {
     document.documentElement.style.setProperty('--bg-card', theme.card);
     document.documentElement.style.setProperty('--text-primary', theme.text);
     document.documentElement.style.setProperty('--text-muted', theme.textMuted);
+    localStorage.setItem('tutibot-theme', selectedTheme.toString());
   }, [selectedTheme]);
 
   useEffect(() => {
@@ -245,6 +253,29 @@ export default function Index() {
     toast.success('Чат удален');
   };
 
+  const startEditingChat = (chatId: string, currentName: string) => {
+    setEditingChatId(chatId);
+    setEditingChatName(currentName);
+  };
+
+  const saveEditingChat = () => {
+    if (!editingChatId || !editingChatName.trim()) return;
+    
+    setChats(prev => prev.map(chat => 
+      chat.id === editingChatId 
+        ? { ...chat, name: editingChatName.trim() }
+        : chat
+    ));
+    setEditingChatId(null);
+    setEditingChatName('');
+    toast.success('Название изменено');
+  };
+
+  const cancelEditingChat = () => {
+    setEditingChatId(null);
+    setEditingChatName('');
+  };
+
   return (
     <div className="flex h-screen" style={{ 
       backgroundColor: 'var(--bg-primary)',
@@ -389,7 +420,7 @@ export default function Index() {
                 </div>
                 <div>
                   <Label style={{ color: 'var(--text-primary)' }} className="mb-3 block">Тема оформления</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {themeColors.map((theme, idx) => (
                       <button
                         key={idx}
@@ -420,33 +451,78 @@ export default function Index() {
               className={`group relative transition-colors ${
                 activeChat === chat.id ? 'bg-white/5' : 'hover:bg-white/[0.02]'
               }`}
-              style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}
+              style={{ borderBottom: themeColors[selectedTheme].isDark ? '1px solid rgba(255, 255, 255, 0.04)' : '1px solid rgba(0, 0, 0, 0.06)' }}
             >
-              <button
-                onClick={() => setActiveChat(chat.id)}
-                className="w-full p-4 text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <Icon name="MessageSquare" size={20} className="text-blue-400" />
-                  <div className="flex-1">
-                    <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{chat.name}</div>
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {chat.messages.length} сообщений
+              {editingChatId === chat.id ? (
+                <div className="p-4">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editingChatName}
+                      onChange={(e) => setEditingChatName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveEditingChat();
+                        if (e.key === 'Escape') cancelEditingChat();
+                      }}
+                      className="flex-1 h-8 border-white/10"
+                      style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                      autoFocus
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 hover:bg-green-500/20"
+                      onClick={saveEditingChat}
+                    >
+                      <Icon name="Check" size={16} className="text-green-400" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 hover:bg-red-500/20"
+                      onClick={cancelEditingChat}
+                    >
+                      <Icon name="X" size={16} className="text-red-400" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setActiveChat(chat.id)}
+                  className="w-full p-4 text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon name="MessageSquare" size={20} className="text-blue-400" />
+                    <div className="flex-1">
+                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{chat.name}</div>
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {chat.messages.length} сообщений
+                      </div>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditingChat(chat.id, chat.name);
+                        }}
+                        className="p-1 hover:bg-blue-500/20 rounded transition-opacity"
+                      >
+                        <Icon name="Edit2" size={16} className="text-blue-400" />
+                      </button>
+                      {chats.length > 1 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteChat(chat.id);
+                          }}
+                          className="p-1 hover:bg-red-500/20 rounded transition-opacity"
+                        >
+                          <Icon name="Trash2" size={16} className="text-red-400" />
+                        </button>
+                      )}
                     </div>
                   </div>
-                  {chats.length > 1 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteChat(chat.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-opacity"
-                    >
-                      <Icon name="Trash2" size={16} className="text-red-400" />
-                    </button>
-                  )}
-                </div>
-              </button>
+                </button>
+              )}
             </div>
           ))}
         </div>
